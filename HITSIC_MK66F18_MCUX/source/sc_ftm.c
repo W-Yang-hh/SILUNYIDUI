@@ -96,6 +96,7 @@ void SCFTM_PWM_ChangeHiRes(FTM_Type *base, ftm_chnl_t chnlNumber, uint32_t dutyF
       //FTM_UpdateChnlEdgeLevelSelect(base, chnlNumber, kFTM_HighTrue);//待定，不知道有没有问题
       return;
 }
+//20000//50
 
 
 int16_t SCFTM_GetSpeed(FTM_Type *base)
