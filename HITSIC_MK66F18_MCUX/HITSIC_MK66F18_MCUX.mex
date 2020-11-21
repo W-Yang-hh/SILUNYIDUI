@@ -159,6 +159,7 @@
                   <pin peripheral="ADC1" signal="VREFL" pin_num="33" pin_signal="VREFL"/>
                   <pin peripheral="ADC0" signal="VALTL" pin_num="34" pin_signal="VSSA"/>
                   <pin peripheral="ADC1" signal="VALTL" pin_num="34" pin_signal="VSSA"/>
+                  <pin peripheral="GPIOA" signal="GPIO, 11" pin_num="63" pin_signal="PTA11/LLWU_P23/FTM2_CH1/MII0_RXCLK/I2C2_SDA/FTM2_QD_PHB/TPM2_CH1"/>
                </pins>
             </function>
             <function name="RTEPIN_Digital">
@@ -962,7 +963,6 @@
                      <config_set name="fsl_lptmr">
                         <struct name="lptmr_config">
                            <setting name="timerMode" value="kLPTMR_TimerModeTimeCounter"/>
-                           <setting name="pinSelect" value="ALT.0"/>
                            <setting name="pinPolarity" value="kLPTMR_PinPolarityActiveHigh"/>
                            <setting name="enableFreeRunning" value="false"/>
                            <setting name="bypassPrescaler" value="true"/>

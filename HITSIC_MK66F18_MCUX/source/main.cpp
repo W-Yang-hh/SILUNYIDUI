@@ -89,14 +89,14 @@ FATFS fatfs;                                   //逻辑驱动器的工作区
 
 static float KP_M = 0.0;
 static float KI_M = 0.0;
-static float KP_S = 0.021;
+static float KP_S = 0.022;
 static float KD_S = 0.012;
 static float LIMIT_S_High = 8.37;
 static float LIMIT_S_Low = 6.78;
 static float servo_pid;
 static float pwm_servo;
-static float pwm_motor_l = 30;
-static float pwm_motor_r = 30;
+static float pwm_motor_l = 32;
+static float pwm_motor_r = 32;
 static int S_run = 0;
 static int mode_change = 0;
 //cam_zf9v034_configPacket_t cameraCfg;

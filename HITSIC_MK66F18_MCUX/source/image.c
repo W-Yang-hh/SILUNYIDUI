@@ -35,7 +35,7 @@ uint8_t left_line[CAMERA_H], right_line[CAMERA_H];//赛道的左右边界
 uint8_t mid_line[CAMERA_H];
 int all_connect_num = 0;//所有白条子数
 uint8_t top_road;//赛道最高处所在行数
-uint32_t threshold = 150;//阈值
+uint32_t threshold = 200;//阈值
 uint8_t* fullBuffer;
 int error_now_s = 0;
 int error_last_s = 0;
