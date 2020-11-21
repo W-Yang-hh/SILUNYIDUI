@@ -1,12 +1,11 @@
 #include "image.h"
 
 int f[10 * CAMERA_H];//考察连通域联通性
-
 //每个白条子属性
 typedef struct {
     uint8_t   left;//左边界
     uint8_t   right;//右边界
-    int   connect_num;//连通标记（号）
+    int   connect_num;//连通标记
 }range;
 
 //每行的所有白条子
@@ -31,15 +30,13 @@ typedef struct {
 all_range white_range[CAMERA_H];//所有白条子
 road my_road[CAMERA_H];//赛道
 uint8_t IMG[CAMERA_H][CAMERA_W];//二值化后图像数组
+uint8_t *fullBuffer =NULL;
 uint8_t left_line[CAMERA_H], right_line[CAMERA_H];//赛道的左右边界
 uint8_t mid_line[CAMERA_H];
 int all_connect_num = 0;//所有白条子数
 uint8_t top_road;//赛道最高处所在行数
-uint32_t threshold = 150;//阈值
-uint8_t* fullBuffer;
-int error_now_s = 0;
-int error_last_s = 0;
-int prospect = 43;
+uint8_t threshold = 160;//阈值
+int prospect = 36;//前瞻
 
 ////////////////////////////////////////////
 //功能：二值化
@@ -57,7 +54,7 @@ void THRE()
         my_map = &IMG[i][0];
         for (int j = 0; j < 188; j++)
         {
-            if ((*map) > (uint8_t)threshold)
+            if ((*map) > threshold)
                 (*my_map) = 255;
             else (*my_map) = 0;
             map++;
@@ -91,7 +88,7 @@ void head_clear(void)
 //输出：最老祖先
 //备注：含路径压缩
 ///////////////////////////////////////////
-int find_f(int node)//返回的是父节点
+int find_f(int node)
 {
     if (f[node] == node)return node;//找到最古老祖先，return
     f[node] = find_f(f[node]);//向上寻找自己的父节点
@@ -419,11 +416,6 @@ void image_main()
     get_mid_line();
 
     for (int i = NEAR_LINE; i >= FAR_LINE; i--)
-    {    if (mid_line[i] != MISS)
-        {
-        IMG[i][mid_line[i]] = 0;
-        }
-    IMG[i][90] = 0;
-    }
-
+        if (mid_line[i] != MISS)
+            IMG[i][mid_line[i]] = 0;
 }

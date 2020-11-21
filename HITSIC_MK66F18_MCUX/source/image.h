@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-//#include "image.h"
+#include "image.h"
 
 #define MISS 255
 #define CAMERA_H  120                            //图片高度
@@ -38,13 +38,10 @@ extern uint8_t IMG[CAMERA_H][CAMERA_W];//二值化后图像数组
 extern uint8_t image_Buffer_0[CAMERA_H][CAMERA_W];
 extern uint8_t* fullBuffer;//指向灰度图的首地址
 extern int prospect;//前瞻
-extern uint32_t threshold;//阈值
-extern uint8_t mid_line[CAMERA_H];//合成的中线
+extern uint8_t threshold;//阈值
+extern uint8_t mid_line[120];//合成的中线
 extern uint8_t left_line[CAMERA_H];
 extern uint8_t right_line[CAMERA_H];//赛道的左右边界
-extern int error_now_s;
-extern int error_last_s;
-
 
 void head_clear(void);
 void THRE(void);

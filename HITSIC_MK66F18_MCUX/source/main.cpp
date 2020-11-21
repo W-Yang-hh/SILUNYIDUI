@@ -83,30 +83,15 @@ FATFS fatfs;                                   //逻辑驱动器的工作区
 #include "sys_fatfs_diskioTest.hpp"
 
 /** SCLIB_TEST */
+#include "sc_test.hpp"
 #include "image.h"
-#include "sc_host.h"
 
 
-static float KP_M = 0.0;
-static float KI_M = 0.0;
-static float KP_S = 0.021;
-static float KD_S = 0.012;
-static float LIMIT_S_High = 8.37;
-static float LIMIT_S_Low = 6.78;
-static float servo_pid;
-static float pwm_servo;
-static float pwm_motor_l = 30;
-static float pwm_motor_r = 30;
-static int S_run = 0;
-static int mode_change = 0;
-//cam_zf9v034_configPacket_t cameraCfg;
-//dmadvp_config_t dmadvpCfg;
-//dmadvp_handle_t dmadvpHandle;
+void MENU_DataSetUp(void);
 
-void motor(void);
-void servo(void);
-void modechange(void);
-void startrun(void);
+cam_zf9v034_configPacket_t cameraCfg;
+dmadvp_config_t dmadvpCfg;
+dmadvp_handle_t dmadvpHandle;
 void CAM_ZF9V034_DmaCallback(edma_handle_t *handle, void *userData, bool transferDone, uint32_t tcds);
 
 inv::i2cInterface_t imu_i2c(nullptr, IMU_INV_I2cRxBlocking, IMU_INV_I2cTxBlocking);
@@ -135,12 +120,12 @@ void main(void)
     PRINTF("Welcome to HITSIC !\n");
     PRINTF("GCC %d.%d.%d\n", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
     cm_backtrace_init("HITSIC_MK66F18", "2020-v3.0", "v4.1.1");
+
     /** 初始化OLED屏幕 */
     DISP_SSD1306_Init();
     extern const uint8_t DISP_image_100thAnniversary[8][128];
     DISP_SSD1306_BufferUpload((uint8_t*) DISP_image_100thAnniversary);
-    DISP_SSD1306_delay_ms(1000);
-    /** 初始 bveaa化ftfx_Flash */
+    /** 初始化ftfx_Flash */
     FLASH_SimpleInit();
     /** 初始化PIT中断管理器 */
     pitMgr_t::init();
@@ -153,55 +138,51 @@ void main(void)
     /** 菜单挂起 */
     MENU_Suspend();
     /** 初始化摄像头 */
+    //TODO: 在这里初始化摄像头
 
 
-    cam_zf9v034_configPacket_t cameraCfg;
-    dmadvp_config_t dmadvpCfg;
-    dmadvp_handle_t dmadvpHandle;
-    CAM_ZF9V034_GetDefaultConfig(&cameraCfg);    //设置摄像头配置
-    CAM_ZF9V034_CfgWrite(&cameraCfg);             //写入配置
-    CAM_ZF9V034_GetReceiverConfig(&dmadvpCfg, &cameraCfg);   //生成对应接收器的配置数据，使用此数据初始化接受器并接收图像数据。
-    DMADVP_Init(DMADVP0, &dmadvpCfg);
-    DMADVP_TransferCreateHandle(&dmadvpHandle, DMADVP0, CAM_ZF9V034_UnitTestDmaCallback);
-    uint8_t *imageBuffer0 = new uint8_t[DMADVP0->imgSize];
-    uint8_t *imageBuffer1 = new uint8_t[DMADVP0->imgSize];
-    //uint8_t *fullBuffer = NULL;
-    disp_ssd1306_frameBuffer_t *dispBuffer = new disp_ssd1306_frameBuffer_t;
-    DMADVP_TransferSubmitEmptyBuffer(DMADVP0, &dmadvpHandle, imageBuffer0);
-    DMADVP_TransferSubmitEmptyBuffer(DMADVP0, &dmadvpHandle, imageBuffer1);
-    DMADVP_TransferStart(DMADVP0, &dmadvpHandle);
+
+   //导入的摄像头初始化部分
+        cam_zf9v034_configPacket_t cameraCfg;
+        CAM_ZF9V034_GetDefaultConfig(&cameraCfg);                                   //设置摄像头配置
+        CAM_ZF9V034_CfgWrite(&cameraCfg);                                   //写入配置
+        dmadvp_config_t dmadvpCfg;
+        CAM_ZF9V034_GetReceiverConfig(&dmadvpCfg, &cameraCfg);    //生成对应接收器的配置数据，使用此数据初始化接受器并接收图像数据。
+        DMADVP_Init(DMADVP0, &dmadvpCfg);
+        dmadvp_handle_t dmadvpHandle;
+        DMADVP_TransferCreateHandle(&dmadvpHandle, DMADVP0, CAM_ZF9V034_UnitTestDmaCallback);
+        uint8_t *imageBuffer0 = new uint8_t[DMADVP0->imgSize];
+        uint8_t *imageBuffer1 = new uint8_t[DMADVP0->imgSize];
+        uint8_t *fullBuffer = NULL;
+        disp_ssd1306_frameBuffer_t *dispBuffer = new disp_ssd1306_frameBuffer_t;
+        DMADVP_TransferSubmitEmptyBuffer(DMADVP0, &dmadvpHandle, imageBuffer0);
+        DMADVP_TransferSubmitEmptyBuffer(DMADVP0, &dmadvpHandle, imageBuffer1);
+        DMADVP_TransferStart(DMADVP0, &dmadvpHandle);
 
 
-   /** 初始化IMU */
-   //TODO: 在这里初始化IMU（MPU6050）
-   /** 菜单就绪 */
-   //MENU_Resume();
-   //MENU_Suspend();
-   /** 控制环初始化 */
+
+
+    /** 初始化IMU */
+    //TODO: 在这里初始化IMU（MPU6050）
+    /** 菜单就绪 */
+ //   MENU_Resume();
+    /** 控制环初始化 */
     //TODO: 在这里初始化控制环
+    /** 初始化结束，开启总中断 */
+    HAL_ExitCritical();
 
     /** 内置DSP函数测试 */
-    float f = arm_sin_f32(0.6f);     //什么意思？
-
-
-    PORT_SetPinInterruptConfig(PORTA, 11U, kPORT_InterruptFallingEdge);
-    extInt_t::insert(PORTA, 11U, startrun);
-    pitMgr_t::insert(6U, 3, motor, pitMgr_t::enable);//电机的定时中断
-    pitMgr_t::insert(20U, 5, servo, pitMgr_t::enable);//舵机的定时中断
-
-
-    /** 初始化结束，开启总中断 */         //开启总中断应该是主函数进入死循环前的最后一条语句。
-       HAL_ExitCritical();              //开总中断，打开这个才能做其他的事儿
+    float f = arm_sin_f32(0.6f);
 
     while (true)
     {
-        while (kStatus_Success != DMADVP_TransferGetFullBuffer(DMADVP0, &dmadvpHandle, &fullBuffer));
-        //SCHOST_ImgUpload(120, 188, fullBuffer);//单缓冲上传图片函数
+        //TODO: 在这里添加车模保护代码
         THRE();
         head_clear();
         image_main();
+        while (kStatus_Success != DMADVP_TransferGetFullBuffer(DMADVP0, &dmadvpHandle, &fullBuffer));
                 dispBuffer->Clear();
-                const uint8_t imageTH = 200;
+                const uint8_t imageTH = 100;
                 for (int i = 0; i < cameraCfg.imageRow; i += 2)
                 {
                     int16_t imageRow = i >> 1;//除以2 为了加速;
@@ -209,168 +190,24 @@ void main(void)
                     for (int j = 0; j < cameraCfg.imageCol; j += 2)
                     {
                         int16_t dispCol = j >> 1;
-                        if (IMG[i][j] > imageTH)
+                        if (fullBuffer[i * cameraCfg.imageCol + j] > imageTH)
                         {
                             dispBuffer->SetPixelColor(dispCol, imageRow, 1);
                         }
                     }
                 }
-                modechange();//通过拨码改变模式（调参和图像）
-                if(GPIO_PinRead(GPIOA, 9U) == 0)
-                {
-                    DISP_SSD1306_BufferUpload((uint8_t*) dispBuffer);
-                }
-//                if(S_run == 1)
-//                {
-//                    DMADVP_TransferStart(DMADVP0, &dmadvpHandle);
-//                    S_run = 0;
-//                }
+
+                DISP_SSD1306_BufferUpload((uint8_t*) dispBuffer);
                 DMADVP_TransferSubmitEmptyBuffer(DMADVP0, &dmadvpHandle, fullBuffer);
-                DMADVP_TransferStart(DMADVP0, &dmadvpHandle);
 
-        //TODO: 在这里添加车模保护代码
-     }
-
+    }
 }
 
-
-/**
- * @brief 菜单构建
- * 该函数会在初始化时被MENU_Init(void);函数调用，禁止手动调用
- */
-
-
-void ExampleHandler(menu_keyOp_t* const _op)
-{
-    *_op = 0;
-}
-//static float KP_M = 0.0;
-//static float KI_M = 0.0;
-//static float KP_S = 0.015;
-//static float KD_S = 0.01;
-//static float LIMIT_S_High = 8.65;
-//static float LIMIT_S_Low = 7.05;
-//static float servo_pid;
-//static float pwm_servo;
-//static float pwm_motor_l = 30;
-//static float pwm_motor_r = 30;
 void MENU_DataSetUp(void)
 {
-    MENU_ListInsert(menu_menuRoot, MENU_ItemConstruct(nullType, NULL, "TEST", 0, 0));
-    /** 创建子菜单指针 */
-    menu_list_t* myList_1;
-/** 子菜单指针初始化 */
-    myList_1 = MENU_ListConstruct(
-        "myList_1",     ///> 菜单标题，在菜单列表中的第一行显示，最大12字符。
-        50,             ///> 菜单列表的大小，须预留1位用于返回上一级的[back]。
-        menu_menuRoot   ///> 该菜单的上级菜单指针。注意：该指针仅用于返回上级菜单，并不会将子菜单插入上级菜单。
-    );
-/** 检查内存分配是否成功 */
-    assert(myList_1);
-/** 将子菜单的跳转入口插入其上级菜单 */
-    MENU_ListInsert(
-        menu_menuRoot,  ///> 要插入的上级菜单。
-        MENU_ItemConstruct(
-        menuType,   ///> 类型标识，指明这是一个菜单跳转类型的菜单项。
-        myList_1,   ///> 数据指针，这里指向要跳转到的菜单列表。
-        "TestList", ///> 菜单项名称，在菜单列表中显示。
-        0,          ///> 数据的保存位置，对于非数据类型填0即可。
-        0           ///> 属性Flag，无任何属性填0。
-    ));
-    {   //这里加这组括号只是为了缩进方便，其内部的语句用于向myList_1插入菜单项。
-        MENU_ListInsert(myList_1, MENU_ItemConstruct(
-            variType,  ///> 类型标识，指明这是一个整数类型的菜单项
-            &prospect,  ///> 数据指针，这里指向要操作的整数。必须是int32_t类型。
-            "Prospect",   ///> 菜单项名称，在菜单列表中显示。
-            10,        ///> 数据的保存地址，不能重复且尽可能连续，步长为1。
-                       ///> 全局数据区0~9的地址为保留地址，不能使用。
-            menuItem_data_global
-                       ///> 属性flag。此flag表示该变量存储于全局数据区，且为只读变量。
-        ));
-        MENU_ListInsert(myList_1, MENU_ItemConstruct(
-                    variType,  ///> 类型标识，指明这是一个整数类型的菜单项
-                    &threshold,  ///> 数据指针，这里指向要操作的整数。必须是int32_t类型。
-                    "threshold",   ///> 菜单项名称，在菜单列表中显示。
-                    11,        ///> 数据的保存地址，不能重复且尽可能连续，步长为1。
-                               ///> 全局数据区0~9的地址为保留地址，不能使用。
-                    menuItem_data_global
-                               ///> 属性flag。此flag表示该变量存储于全局数据区，且为只读变量。
-                ));
-        MENU_ListInsert(myList_1, MENU_ItemConstruct(
-                    varfType,  ///> 类型标识，指明这是一个整数类型的菜单项
-                    &KP_S,  ///> 数据指针，这里指向要操作的整数。必须是int32_t类型。
-                    "KP_S",   ///> 菜单项名称，在菜单列表中显示。
-                    12,        ///> 数据的保存地址，不能重复且尽可能连续，步长为1。
-                               ///> 全局数据区0~9的地址为保留地址，不能使用。
-                    menuItem_data_global
-                               ///> 属性flag。此flag表示该变量存储于全局数据区，且为只读变量。
-                ));
-        MENU_ListInsert(myList_1, MENU_ItemConstruct(
-                            varfType,  ///> 类型标识，指明这是一个整数类型的菜单项
-                            &KD_S,  ///> 数据指针，这里指向要操作的整数。必须是int32_t类型。
-                            "KD_S",   ///> 菜单项名称，在菜单列表中显示。
-                            13,        ///> 数据的保存地址，不能重复且尽可能连续，步长为1。
-                                       ///> 全局数据区0~9的地址为保留地址，不能使用。
-                            menuItem_data_global
-                                       ///> 属性flag。此flag表示该变量存储于全局数据区，且为只读变量。
-                        ));
-        MENU_ListInsert(myList_1, MENU_ItemConstruct(
-                            varfType,  ///> 类型标识，指明这是一个整数类型的菜单项
-                            &pwm_motor_r,  ///> 数据指针，这里指向要操作的整数。必须是int32_t类型。
-                            "pwm_motor_r",   ///> 菜单项名称，在菜单列表中显示。
-                            14,        ///> 数据的保存地址，不能重复且尽可能连续，步长为1。
-                                       ///> 全局数据区0~9的地址为保留地址，不能使用。
-                            menuItem_data_global
-                                       ///> 属性flag。此flag表示该变量存储于全局数据区，且为只读变量。
-                        ));
-        MENU_ListInsert(myList_1, MENU_ItemConstruct(
-                            varfType,  ///> 类型标识，指明这是一个整数类型的菜单项
-                            &pwm_motor_l,  ///> 数据指针，这里指向要操作的整数。必须是int32_t类型。
-                            "pwm_motor_l",   ///> 菜单项名称，在菜单列表中显示。
-                            15,        ///> 数据的保存地址，不能重复且尽可能连续，步长为1。
-                                       ///> 全局数据区0~9的地址为保留地址，不能使用。
-                            menuItem_data_global
-                                       ///> 属性flag。此flag表示该变量存储于全局数据区，且为只读变量。
-                        ));
+    MENU_ListInsert(menu_menuRoot, MENU_ItemConstruct(nullType, NULL, "EXAMPLE", 0, 0));
+    //TODO: 在这里添加子菜单和菜单项
 
-    }
-    MENU_ListInsert(menu_menuRoot, MENU_ItemConstruct(
-          procType,  ///> 类型标识，指明这是一个浮点类型的菜单项
-          &ExampleHandler,///> 数据指针，这里指向要操作的整数。必须是float类型。
-          "T_proc ", ///> 菜单项名称，在菜单列表中显示。
-          0,         ///> 数据的保存地址，不能重复且尽可能连续，步长为1。
-          menuItem_proc_runOnce
-                     ///> 属性flag。此flag表示该该程序运行一次就退出。
-    ));
-}
-
-void servo(void)
-{
-        error_now_s = 90-(int)mid_line[prospect];
-        servo_pid = KP_S *error_now_s  + KD_S*(error_now_s - error_last_s );
-        pwm_servo = servo_pid + 7.64;
-        if(pwm_servo>LIMIT_S_High)
-        {
-            pwm_servo = LIMIT_S_High;
-        }
-        else if(pwm_servo<LIMIT_S_Low)
-        {
-            pwm_servo = LIMIT_S_Low;
-        }
-        error_last_s = error_now_s;
-        SCFTM_PWM_ChangeHiRes(FTM3, kFTM_Chnl_7 ,50U, pwm_servo);
-}
-
-
-void motor(void)
-{
-    if(S_run == 1)
-    {
-        SCFTM_PWM_Change(FTM0, kFTM_Chnl_0 ,20000U, pwm_motor_l);
-        SCFTM_PWM_Change(FTM0, kFTM_Chnl_1 ,20000U, 0);
-        SCFTM_PWM_Change(FTM0, kFTM_Chnl_2, 20000U, pwm_motor_r);
-        SCFTM_PWM_Change(FTM0, kFTM_Chnl_3, 20000U, 0);
-    }
 }
 
 void CAM_ZF9V034_DmaCallback(edma_handle_t *handle, void *userData, bool transferDone, uint32_t tcds)
@@ -380,23 +217,23 @@ void CAM_ZF9V034_DmaCallback(edma_handle_t *handle, void *userData, bool transfe
     //TODO: 添加图像处理（转向控制也可以写在这里）
 }
 
-void modechange(void)
-{
-    if (GPIO_PinRead(GPIOA, 9U) == 1 && mode_change == 0)//拨码下降沿时开启菜单
-    {
-        MENU_Resume();
-        mode_change = 1;
-    }
-    else if (GPIO_PinRead(GPIOA, 9U) == 0 && mode_change == 1)//拨码上升沿时挂起菜单
-    {
-        MENU_Suspend();
-        mode_change = 0;
-    }
-    //SDK_DelayAtLeastUs(1000 * 1000, CLOCK_GetFreq(kCLOCK_CoreSysClk));//延时1秒，防止一次拨动进入该函数多次
-}
 
-void startrun(void)
-{
-    SDK_DelayAtLeastUs(4000 * 1000, CLOCK_GetFreq(kCLOCK_CoreSysClk));//延时2秒发车
-    S_run = 1;
-}
+
+/**
+ * 『灯千结的碎碎念』 Tips by C.M. :
+ * 1. 浮点数计算有时（例如除零时）会产生“nan”，即“非数（Not-a-Number）”。
+ *      要检测一个变量是否为“nan”，只需判断这个变量是否和自身相等。如果该
+ *      变量与自身不相等（表达式“var == var”的值为假），则可判定该浮点数
+ *      的值是nan，需要进行车模保护动作。
+ * 2. 由于车模震动等因素，IMU可能会断开连接。一旦发现IMU读取失败，应执行车
+ *      模保护动作。另外，IMU在单片机复位的瞬间可能正在进行传输，导致时序
+ *      紊乱，初始化失败。因此装有IMU的车模复位时必须全车断电。
+ * 3. 正常情况下图像帧率为50FPS，即20ms一帧。若摄像头时序紊乱，会导致控制周
+ *      期混乱。因而有必要在每次图像采集完成时测量距离上次图像采集完成的时
+ *      间间隔，如果明显偏离20ms，须执行车模保护动作。
+ * 4. 直立车需特别注意：有时控制输出会使两个电机向相反方向旋转，这在正常运行
+ *      中是十分危险的，可能造成车模进入“原地陀螺旋转”的状态，极易损坏车模或
+ *      导致人员受伤。在设置电机占空比时务必做好异常保护。
+ */
+
+
