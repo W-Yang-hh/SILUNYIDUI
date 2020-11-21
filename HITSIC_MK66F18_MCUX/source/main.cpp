@@ -85,20 +85,24 @@ FATFS fatfs;                                   //逻辑驱动器的工作区
 /** SCLIB_TEST */
 #include "image.h"
 #include "sc_host.h"
+#include "adc_fir.h"
 
 
 static float KP_M = 0.0;
 static float KI_M = 0.0;
-static float KP_S = 0.021;
+static float KP_S = 0.022;
 static float KD_S = 0.012;
 static float LIMIT_S_High = 8.37;
 static float LIMIT_S_Low = 6.78;
 static float servo_pid;
 static float pwm_servo;
-static float pwm_motor_l = 30;
-static float pwm_motor_r = 30;
+static float pwm_motor_l = 32;
+static float pwm_motor_r = 32;
 static int S_run = 0;
+static int running = 0;
 static int mode_change = 0;
+static char piancha[3];
+
 //cam_zf9v034_configPacket_t cameraCfg;
 //dmadvp_config_t dmadvpCfg;
 //dmadvp_handle_t dmadvpHandle;
@@ -106,7 +110,9 @@ static int mode_change = 0;
 void motor(void);
 void servo(void);
 void modechange(void);
-void startrun(void);
+void startrun(void);   //延迟发车
+void driveaway(void);  //出赛道保护
+void get_piancha(void);
 void CAM_ZF9V034_DmaCallback(edma_handle_t *handle, void *userData, bool transferDone, uint32_t tcds);
 
 inv::i2cInterface_t imu_i2c(nullptr, IMU_INV_I2cRxBlocking, IMU_INV_I2cTxBlocking);
@@ -187,19 +193,22 @@ void main(void)
     PORT_SetPinInterruptConfig(PORTA, 11U, kPORT_InterruptFallingEdge);
     extInt_t::insert(PORTA, 11U, startrun);
     pitMgr_t::insert(6U, 3, motor, pitMgr_t::enable);//电机的定时中断
+//    pitMgr_t::insert(20U, 5, WIJ_multi, pitMgr_t::enable);//舵机的定时中断
     pitMgr_t::insert(20U, 5, servo, pitMgr_t::enable);//舵机的定时中断
 
 
     /** 初始化结束，开启总中断 */         //开启总中断应该是主函数进入死循环前的最后一条语句。
        HAL_ExitCritical();              //开总中断，打开这个才能做其他的事儿
-
+       DISP_SSD1306_Fill(0x00);
     while (true)
     {
         while (kStatus_Success != DMADVP_TransferGetFullBuffer(DMADVP0, &dmadvpHandle, &fullBuffer));
-        //SCHOST_ImgUpload(120, 188, fullBuffer);//单缓冲上传图片函数
+        //SCHOST_ImgUpload(fullBuffer, 120, 188);//单缓冲上传图片函数
         THRE();
         head_clear();
         image_main();
+        LV_Sample();
+        LV_Get_Val();
                 dispBuffer->Clear();
                 const uint8_t imageTH = 200;
                 for (int i = 0; i < cameraCfg.imageRow; i += 2)
@@ -215,16 +224,14 @@ void main(void)
                         }
                     }
                 }
+                driveaway();//出赛道保护
                 modechange();//通过拨码改变模式（调参和图像）
                 if(GPIO_PinRead(GPIOA, 9U) == 0)
                 {
-                    DISP_SSD1306_BufferUpload((uint8_t*) dispBuffer);
+                    get_piancha();
+                    DISP_SSD1306_Fill(0x00);
+                    DISP_SSD1306_Print_F6x8(5, 5, &piancha[0]);
                 }
-//                if(S_run == 1)
-//                {
-//                    DMADVP_TransferStart(DMADVP0, &dmadvpHandle);
-//                    S_run = 0;
-//                }
                 DMADVP_TransferSubmitEmptyBuffer(DMADVP0, &dmadvpHandle, fullBuffer);
                 DMADVP_TransferStart(DMADVP0, &dmadvpHandle);
 
@@ -240,20 +247,6 @@ void main(void)
  */
 
 
-void ExampleHandler(menu_keyOp_t* const _op)
-{
-    *_op = 0;
-}
-//static float KP_M = 0.0;
-//static float KI_M = 0.0;
-//static float KP_S = 0.015;
-//static float KD_S = 0.01;
-//static float LIMIT_S_High = 8.65;
-//static float LIMIT_S_Low = 7.05;
-//static float servo_pid;
-//static float pwm_servo;
-//static float pwm_motor_l = 30;
-//static float pwm_motor_r = 30;
 void MENU_DataSetUp(void)
 {
     MENU_ListInsert(menu_menuRoot, MENU_ItemConstruct(nullType, NULL, "TEST", 0, 0));
@@ -334,14 +327,6 @@ void MENU_DataSetUp(void)
                         ));
 
     }
-    MENU_ListInsert(menu_menuRoot, MENU_ItemConstruct(
-          procType,  ///> 类型标识，指明这是一个浮点类型的菜单项
-          &ExampleHandler,///> 数据指针，这里指向要操作的整数。必须是float类型。
-          "T_proc ", ///> 菜单项名称，在菜单列表中显示。
-          0,         ///> 数据的保存地址，不能重复且尽可能连续，步长为1。
-          menuItem_proc_runOnce
-                     ///> 属性flag。此flag表示该该程序运行一次就退出。
-    ));
 }
 
 void servo(void)
@@ -364,14 +349,23 @@ void servo(void)
 
 void motor(void)
 {
-    if(S_run == 1)
+    if(S_run == 1 && running == 0)
     {
         SCFTM_PWM_Change(FTM0, kFTM_Chnl_0 ,20000U, pwm_motor_l);
         SCFTM_PWM_Change(FTM0, kFTM_Chnl_1 ,20000U, 0);
         SCFTM_PWM_Change(FTM0, kFTM_Chnl_2, 20000U, pwm_motor_r);
         SCFTM_PWM_Change(FTM0, kFTM_Chnl_3, 20000U, 0);
+        running = 1;
     }
+    if(S_run == 0)
+      {
+           SCFTM_PWM_Change(FTM0, kFTM_Chnl_0 ,20000U, 0);
+           SCFTM_PWM_Change(FTM0, kFTM_Chnl_1 ,20000U, 0);
+           SCFTM_PWM_Change(FTM0, kFTM_Chnl_2, 20000U, 0);
+           SCFTM_PWM_Change(FTM0, kFTM_Chnl_3, 20000U, 0);
+       }
 }
+
 
 void CAM_ZF9V034_DmaCallback(edma_handle_t *handle, void *userData, bool transferDone, uint32_t tcds)
 {
@@ -379,6 +373,7 @@ void CAM_ZF9V034_DmaCallback(edma_handle_t *handle, void *userData, bool transfe
 
     //TODO: 添加图像处理（转向控制也可以写在这里）
 }
+
 
 void modechange(void)
 {
@@ -399,4 +394,36 @@ void startrun(void)
 {
     SDK_DelayAtLeastUs(4000 * 1000, CLOCK_GetFreq(kCLOCK_CoreSysClk));//延时2秒发车
     S_run = 1;
+}
+
+void driveaway(void)
+{
+    int count = 0;
+    for (int i = 83; i >= 80; i--)
+        {
+            for (int j = 70; j <= 110; j++)
+            {
+                if(IMG[i][j] == 0)
+                    count++;
+            }
+        }
+    if(count > 30)
+    {
+        S_run = 0;
+    }
+}
+
+void get_piancha(void)
+{
+    int k = error_now_s;
+    char c[3] = {0};
+    for(int i = 0; i <3; i++)
+    {
+        c[i] = 48 + k % 10;
+        k /= 10;
+    }
+    for(int j = 0; j <3; j++)
+        {
+            piancha[2-j] = c[j];
+        }
 }

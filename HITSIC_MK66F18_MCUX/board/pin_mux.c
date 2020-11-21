@@ -126,6 +126,7 @@ RTEPIN_Basic:
   - {pin_num: '33', peripheral: ADC1, signal: VREFL, pin_signal: VREFL}
   - {pin_num: '34', peripheral: ADC0, signal: VALTL, pin_signal: VSSA}
   - {pin_num: '34', peripheral: ADC1, signal: VALTL, pin_signal: VSSA}
+  - {pin_num: '63', peripheral: GPIOA, signal: 'GPIO, 11', pin_signal: PTA11/LLWU_P23/FTM2_CH1/MII0_RXCLK/I2C2_SDA/FTM2_QD_PHB/TPM2_CH1}
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS ***********
  */
 /* clang-format on */
@@ -143,6 +144,9 @@ void RTEPIN_Basic(void)
 
     /* PORTA0 (pin 50) is configured as JTAG_TCLK */
     PORT_SetPinMux(RTEPIN_BASIC_SWO_CLK_PORT, RTEPIN_BASIC_SWO_CLK_PIN, kPORT_MuxAlt7);
+
+    /* PORTA11 (pin 63) is configured as PTA11 */
+    PORT_SetPinMux(RTEPIN_BASIC_SWITCH_1_PORT, RTEPIN_BASIC_SWITCH_1_PIN, kPORT_MuxAsGpio);
 
     /* PORTA18 (pin 72) is configured as EXTAL0 */
     PORT_SetPinMux(PORTA, 18U, kPORT_PinDisabledOrAnalog);

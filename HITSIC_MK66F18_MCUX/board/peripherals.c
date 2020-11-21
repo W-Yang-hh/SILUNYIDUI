@@ -264,7 +264,7 @@ instance:
   - fsl_lptmr:
     - lptmr_config:
       - timerMode: 'kLPTMR_TimerModeTimeCounter'
-      - pinSelect: 'ALT.0'
+      - pinSelect: 'ALT.1'
       - pinPolarity: 'kLPTMR_PinPolarityActiveHigh'
       - enableFreeRunning: 'false'
       - bypassPrescaler: 'true'
@@ -283,7 +283,7 @@ instance:
 /* clang-format on */
 const lptmr_config_t LPTMR0_config = {
   .timerMode = kLPTMR_TimerModeTimeCounter,
-  .pinSelect = kLPTMR_PinSelectInput_0,
+  .pinSelect = kLPTMR_PinSelectInput_1,
   .pinPolarity = kLPTMR_PinPolarityActiveHigh,
   .enableFreeRunning = false,
   .bypassPrescaler = true,

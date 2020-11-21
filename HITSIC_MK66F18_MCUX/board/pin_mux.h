@@ -52,6 +52,19 @@ void BOARD_InitBootPins(void);
 #define RTEPIN_BASIC_RST_PIN_MASK (1U << 5U)      /*!<@brief PORT pin mask */
                                                   /* @} */
 
+/*! @name PORTA11 (number 63), SWITCH_1
+  @{ */
+
+/* Symbols to be used with GPIO driver */
+#define RTEPIN_BASIC_SWITCH_1_GPIO GPIOA                /*!<@brief GPIO peripheral base pointer */
+#define RTEPIN_BASIC_SWITCH_1_GPIO_PIN_MASK (1U << 11U) /*!<@brief GPIO pin mask */
+
+/* Symbols to be used with PORT driver */
+#define RTEPIN_BASIC_SWITCH_1_PORT PORTA                /*!<@brief PORT peripheral base pointer */
+#define RTEPIN_BASIC_SWITCH_1_PIN 11U                   /*!<@brief PORT pin number */
+#define RTEPIN_BASIC_SWITCH_1_PIN_MASK (1U << 11U)      /*!<@brief PORT pin mask */
+                                                        /* @} */
+
 /*!
  * @brief Configures pin routing and optionally pin electrical features.
  *
